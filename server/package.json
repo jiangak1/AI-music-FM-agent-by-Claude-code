@@ -1,0 +1,26 @@
+{
+  "name": "ai-radio",
+  "version": "1.0.0",
+  "description": "AI 电台 — 智能 DJ + 歌单 + 混合音频源",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "keywords": [
+    "radio",
+    "ai",
+    "dj",
+    "pwa"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "edge-tts": "^1.0.1",
+    "express": "^4.21.0",
+    "music-metadata": "^10.3.0",
+    "NeteaseCloudMusicApi": "^4.31.0",
+    "openai": "^4.73.0"
+  }
+}

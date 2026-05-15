@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI 电台图标生成器</title>
+<style>
+  body { font-family: system-ui; display: flex; flex-direction: column; align-items: center; padding: 40px; background: #0a0a0f; color: #e0e0e0; }
+  canvas { border: 1px solid #333; margin: 10px; }
+  a { color: #e43f5a; margin: 8px; }
+  button { padding: 12px 24px; background: #e43f5a; color: #fff; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; margin: 10px; }
+</style>
+</head>
+<body>
+<h2>AI 电台 — PWA 图标生成器</h2>
+<p>点击下载按钮保存图标到 public/assets/icons/ 目录</p>
+<div id="previews"></div>
+<p id="downloads"></p>
+<button onclick="generateAll()">生成并下载图标</button>
+
+<script>
+function drawIcon(size) {
+  const c = document.createElement('canvas');
+  c.width = size; c.height = size;
+  const ctx = c.getContext('2d');
+
+  // BG
+  const bg = ctx.createLinearGradient(0, 0, size, size);
+  bg.addColorStop(0, '#1a1a2e'); bg.addColorStop(1, '#0a0a0f');
+  ctx.fillStyle = bg;
+  ctx.beginPath();
+  ctx.roundRect(0, 0, size, size, size * 0.15);
+  ctx.fill();
+
+  // Waves
+  const cx = size / 2, cy = size * 0.38;
+  ctx.strokeStyle = '#e43f5a'; ctx.lineWidth = size * 0.015; ctx.lineCap = 'round';
+  [[0.15,0.3],[0.22,0.5],[0.30,0.8]].forEach(([r, a]) => {
+    ctx.globalAlpha = a;
+    ctx.beginPath();
+    ctx.arc(cx, cy, size * r, Math.PI + 0.4, -0.4);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+
+  // Dot
+  ctx.fillStyle = '#e43f5a';
+  ctx.beginPath(); ctx.arc(cx, cy, size * 0.03, 0, Math.PI * 2); ctx.fill();
+
+  // Text
+  ctx.fillStyle = '#e0e0e0';
+  ctx.font = `700 ${size * 0.09}px system-ui`; ctx.textAlign = 'center';
+  ctx.fillText('AI 电台', cx, size * 0.65);
+
+  ctx.fillStyle = '#9090a0';
+  ctx.font = `${size * 0.047}px system-ui`; ctx.fillText('AI RADIO', cx, size * 0.75);
+
+  ctx.fillStyle = '#e43f5a';
+  ctx.font = `400 ${size * 0.062}px monospace`; ctx.fillText('102.4', cx, size * 0.87);
+
+  return c;
+}
+
+function generateAll() {
+  document.getElementById('previews').innerHTML = '';
+  document.getElementById('downloads').innerHTML = '';
+  [192, 512].forEach(size => {
+    const c = drawIcon(size);
+    document.getElementById('previews').appendChild(c);
+    const a = document.createElement('a');
+    a.href = c.toDataURL('image/png');
+    a.download = `icon-${size}.png`;
+    a.textContent = `下载 icon-${size}.png`;
+    a.style.display = 'block';
+    document.getElementById('downloads').appendChild(a);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#060d1a">
+  <meta name="description" content="AI Radio — Intelligent DJ & Playlist">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/icons/icon-192.png">
+  <title>AI Radio</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div class="bg-image" id="bgImage"></div>
+  <div class="ambient-bg" id="ambientBg"></div>
+
+  <div class="app-layout">
+
+    <!-- Left Navigation -->
+    <nav class="nav-sidebar" id="navSidebar">
+      <button class="nav-entry active" data-nav="playlist" title="播放列表">
+        <span class="nav-icon">☰</span>
+        <span class="nav-label">列表</span>
+      </button>
+      <button class="nav-entry" data-nav="recommended" title="推荐歌单">
+        <span class="nav-icon">★</span>
+        <span class="nav-label">推荐</span>
+      </button>
+      <button class="nav-entry" data-nav="ai" title="AI 生成">
+        <span class="nav-icon">✦</span>
+        <span class="nav-label">AI</span>
+      </button>
+      <button class="nav-entry" data-nav="netease" title="网易云">
+        <span class="nav-icon">♫</span>
+        <span class="nav-label">云</span>
+      </button>
+      <button class="nav-entry" data-nav="library" title="本地">
+        <span class="nav-icon">☷</span>
+        <span class="nav-label">本地</span>
+      </button>
+      <button class="nav-entry" data-nav="settings" title="设置">
+        <span class="nav-icon">⚙</span>
+        <span class="nav-label">设置</span>
+      </button>
+      <button class="nav-entry" data-nav="chat" title="AI 聊天">
+        <span class="nav-icon">💬</span>
+        <span class="nav-label">聊天</span>
+      </button>
+    </nav>
+
+    <!-- Panel Drawer -->
+    <aside class="panel-drawer" id="panelDrawer">
+      <div class="panel-drawer-inner">
+        <!-- 播放列表 -->
+        <div class="panel active" id="panelPlaylist" data-panel="playlist">
+          <div class="panel-header">
+            <span id="queueCount">0 songs</span>
+            <button class="btn-sm" id="btnClearQueue">清空</button>
+          </div>
+          <ul class="track-list" id="playlistEl"></ul>
+        </div>
+
+        <!-- 推荐歌单 -->
+        <div class="panel" id="panelRecommended" data-panel="recommended">
+          <div class="panel-header">
+            <span id="recommendedCount">推荐歌单</span>
+            <div>
+              <button class="btn-sm" id="btnAddAllRecommended">全部加入</button>
+              <button class="btn-sm" id="btnClearRecommended">清空</button>
+            </div>
+          </div>
+          <ul class="track-list" id="recommendedEl"></ul>
+        </div>
+
+        <!-- AI 生成 -->
+        <div class="panel" id="panelAi" data-panel="ai">
+          <div class="ai-form">
+            <label>心情 / Mood</label>
+            <input type="text" id="aiMood" placeholder="轻松、活力、安静、怀旧...">
+            <label>风格 / Genre</label>
+            <input type="text" id="aiGenre" placeholder="流行、摇滚、爵士、电子...">
+            <label>年代 / Era</label>
+            <input type="text" id="aiEra" placeholder="80s、90s、00s、最近...">
+            <label>数量</label>
+            <input type="number" id="aiCount" value="10" min="3" max="30">
+            <button class="btn-primary" id="btnGenerate">AI 生成歌单</button>
+            <button class="btn-primary" id="btnWeather" style="background:var(--accent2);color:#000;">天气推荐</button>
+            <button class="btn-sm" id="btnSaveTaste" style="margin-top:6px;">保存到品味记忆</button>
+          </div>
+          <div class="ai-result" id="aiResult" style="display:none;">
+            <div class="panel-header">
+              <span>AI 推荐</span>
+              <button class="btn-sm" id="btnAddAllAI">全部加入队列</button>
+            </div>
+            <ul class="track-list" id="aiPlaylistEl"></ul>
+          </div>
+        </div>
+
+        <!-- 网易云音乐 -->
+        <div class="panel" id="panelNetease" data-panel="netease">
+          <div class="netease-login" id="neteaseLogin">
+            <div class="panel-header">
+              <span>网易云音乐</span>
+              <span class="netease-status" id="neteaseLoginStatus">未登录</span>
+            </div>
+            <div id="neteaseQRArea" style="display:none; text-align:center; padding:10px;">
+              <img id="neteaseQRImg" src="" alt="QR Login" style="max-width:180px; border-radius:12px;">
+              <p style="font-size:11px; color:var(--text3); margin-top:8px;">网易云音乐 App 扫码登录</p>
+            </div>
+            <div style="padding:0 4px;">
+              <button class="btn-primary" id="btnNeteaseLogin" style="width:100%;">扫码登录</button>
+            </div>
+          </div>
+          <div class="netease-content" id="neteaseContent" style="display:none;">
+            <div class="netease-tabs">
+              <button class="btn-sm netease-subtab active" data-ntab="myPlaylists">我的歌单</button>
+              <button class="btn-sm netease-subtab" data-ntab="search">搜索</button>
+              <button class="btn-sm netease-subtab" data-ntab="taste">品味</button>
+            </div>
+            <div class="netease-panel active" id="neteaseMyPlaylists">
+              <ul class="track-list" id="neteasePlaylistEl"></ul>
+            </div>
+            <div class="netease-panel" id="neteasePlaylistDetail" style="display:none;">
+              <div class="panel-header">
+                <button class="btn-sm" id="btnNeteaseBack">← 返回</button>
+                <span id="neteaseDetailTitle"></span>
+              </div>
+              <div class="panel-header">
+                <button class="btn-sm" id="btnAnalyzeTaste">AI 分析品味</button>
+                <button class="btn-sm" id="btnAddAllNetease">全部加入</button>
+              </div>
+              <div class="taste-result" id="tasteResult" style="display:none;"></div>
+              <ul class="track-list" id="neteaseTrackEl"></ul>
+            </div>
+            <div class="netease-panel" id="neteaseSearch" style="display:none;">
+              <div class="panel-header">
+                <input type="text" id="neteaseSearchInput" placeholder="搜索歌曲..." style="flex:1;">
+                <button class="btn-sm" id="btnNeteaseSearch">搜索</button>
+              </div>
+              <ul class="track-list" id="neteaseSearchEl"></ul>
+            </div>
+            <div class="netease-panel" id="neteaseTaste" style="display:none;">
+              <div class="ai-form">
+                <label>选择歌单进行品味分析</label>
+                <select id="tastePlaylistSelect">
+                  <option value="">— 请先登录并加载歌单 —</option>
+                </select>
+                <button class="btn-primary" id="btnAnalyzeSelectedPlaylist">分析品味并生成推荐</button>
+              </div>
+              <div class="taste-result" id="tasteAnalysisResult" style="display:none;"></div>
+              <ul class="track-list" id="tasteRecommendEl"></ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- 本地音乐 -->
+        <div class="panel" id="panelLibrary" data-panel="library">
+          <div class="panel-header">
+            <input type="text" id="musicDirInput" placeholder="Music folder path, e.g. D:\Music" style="flex:1;">
+            <button class="btn-sm" id="btnScan">扫描</button>
+          </div>
+          <div class="scan-status" id="scanStatus"></div>
+          <ul class="track-list" id="libraryEl"></ul>
+        </div>
+
+        <!-- 设置 -->
+        <div class="panel" id="panelSettings" data-panel="settings">
+          <div class="settings-form">
+            <label>AI API Key</label>
+            <input type="password" id="settingApiKey" placeholder="sk-...">
+
+            <label>API Base URL</label>
+            <input type="text" id="settingApiBase" placeholder="https://api.openai.com/v1">
+
+            <label>模型</label>
+            <input type="text" id="settingModel" placeholder="gpt-4o">
+
+            <label>DJ 语音</label>
+            <select id="settingDJVoice">
+              <option value="mimo_default">MiMo 默认</option>
+              <option value="default_zh">中文女声</option>
+              <option value="default_en">英文女声</option>
+              <option value="mia">Mia</option>
+              <option value="chloe">Chloe</option>
+              <option value="milo">Milo</option>
+              <option value="dean">Dean</option>
+            </select>
+
+            <label>DJ 频率</label>
+            <select id="settingDJFreq">
+              <option value="every_track">每首之间</option>
+              <option value="every_3">每 3 首</option>
+              <option value="every_5">每 5 首</option>
+              <option value="first_only">仅开场</option>
+            </select>
+
+            <label class="toggle-label">
+              <input type="checkbox" id="settingDJEnabled" checked>
+              启用 AI DJ
+            </label>
+
+            <label style="margin-top:8px;color:var(--accent2);">TTS 语音合成（mimo-v2-tts）</label>
+            <input type="password" id="settingTTSKey" placeholder="TTS API Key（留空则复用 AI Key）">
+            <input type="text" id="settingTTSApiBase" placeholder="TTS API Base（留空则复用 AI Base）">
+            <input type="text" id="settingTTSModel" placeholder="mimo-v2.5-tts">
+            <input type="text" id="settingTTSVoice" placeholder="alloy">
+
+            <label style="margin-top:8px;color:var(--accent2);">OpenWeather</label>
+            <input type="password" id="settingWeatherKey" placeholder="OpenWeather API Key">
+            <input type="text" id="settingWeatherCity" placeholder="Beijing">
+
+            <button class="btn-primary" id="btnSaveSettings">保存设置</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Player Area -->
+    <main class="player-area">
+      <div class="player-content">
+
+        <!-- Header -->
+        <header class="header">
+          <div class="freq-display">
+            <span class="freq-label">FM</span>
+            <span class="freq-value" id="freqDisplay">102.4</span>
+            <span class="freq-unit">MHz</span>
+          </div>
+          <div class="header-info">
+            <span class="weather-mini" id="weatherMini"></span>
+            <span class="time" id="timeDisplay">--:--</span>
+            <span class="tag" id="moodTag">AI Radio</span>
+          </div>
+        </header>
+
+        <!-- Artwork -->
+        <div class="artwork-area">
+          <div class="artwork" id="artwork">
+            <img class="artwork-img" id="artworkImg" src="" alt="" style="display:none;">
+            <div class="artwork-inner" id="artworkInner">
+              <span class="artwork-icon" id="artworkIcon">🎵</span>
+              <span class="artwork-title" id="artworkTitle">AI Radio</span>
+              <span class="artwork-subtitle" id="artworkSubtitle">FM 102.4</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track Info -->
+        <div class="track-info-area">
+          <h2 class="track-title" id="trackTitle">AI Radio</h2>
+          <p class="track-artist" id="trackArtist">随时陪伴</p>
+        </div>
+
+        <!-- DJ Message -->
+        <div class="dj-message-inline" id="djMessage"></div>
+
+        <!-- DJ Intro Speech Bubble (for recommended tracks) -->
+        <div class="dj-intro-bubble" id="djIntroBubble">
+          <div class="dj-intro-text" id="djIntroText"></div>
+        </div>
+
+        <!-- Lyrics -->
+        <div class="lyrics-area" id="lyricsArea">
+          <div class="lyrics-container" id="lyricsContainer">
+            <div class="lyric-line" id="lyricLine0"></div>
+            <div class="lyric-line" id="lyricLine1"></div>
+            <div class="lyric-line active" id="lyricLine2">等待音乐...</div>
+            <div class="lyric-line" id="lyricLine3"></div>
+            <div class="lyric-line" id="lyricLine4"></div>
+          </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-area">
+          <input type="range" class="progress-bar" id="progressBar" min="0" max="100" value="0">
+          <div class="time-labels">
+            <span id="currentTime">00:00</span>
+            <span id="totalTime">00:00</span>
+          </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+          <button class="ctrl-btn" id="btnShuffle" title="随机">⇤</button>
+          <button class="ctrl-btn" id="btnPrev" title="上一首">⏮</button>
+          <button class="ctrl-btn play-btn" id="btnPlay" title="播放">▶</button>
+          <button class="ctrl-btn" id="btnNext" title="下一首">⏭</button>
+          <button class="ctrl-btn" id="btnLike" title="喜欢">♡</button>
+        </div>
+
+        <!-- Volume -->
+        <div class="volume-area">
+          <span class="vol-icon">🔉</span>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="100" value="80">
+        </div>
+
+      </div><!-- /.player-content -->
+    </main>
+
+    <!-- Chat Drawer (right side) -->
+    <aside class="chat-drawer" id="chatDrawer">
+      <div class="chat-header">
+        <span>AI DJ 小电</span>
+        <button class="btn-sm-icon" id="btnChatClose">✕</button>
+      </div>
+      <div class="chat-messages" id="chatMessages">
+        <div class="chat-empty">和小电聊聊音乐吧</div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="和小电聊聊..." />
+        <button class="btn-sm" id="btnChatSend">发送</button>
+      </div>
+    </aside>
+
+  </div><!-- /.app-layout -->
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(function() {});
+    }
+  </script>
+  <script src="/js/api.js"></script>
+  <script src="/js/player.js"></script>
+  <script src="/js/ui.js"></script>
+  <script src="/js/netease.js"></script>
+  <script src="/js/chat.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
