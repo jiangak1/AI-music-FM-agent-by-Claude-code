@@ -79,15 +79,31 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Start Node.js sidecar
+            // Start Node.js sidecar (blocks until server is ready)
             let child = start_node_server();
             app.manage(SidecarProc(Mutex::new(child)));
 
+            // Create main window pointing to the Node.js server
+            // This works for both dev and production — all relative API paths resolve correctly
+            let window = tauri::WebviewWindowBuilder::new(
+                app,
+                "main",
+                tauri::WebviewUrl::External("http://localhost:3000".parse().unwrap()),
+            )
+            .title("AI 电台 FM 102.4")
+            .inner_size(400.0, 820.0)
+            .min_inner_size(360.0, 600.0)
+            .center()
+            .build()?;
+
+            // Bring to front
+            let _ = window.set_focus();
+
             // System tray
-            let handle = app.handle();
+            let icon = app.default_window_icon().cloned().unwrap();
             let _tray = TrayIconBuilder::with_id("ai-radio-tray")
                 .tooltip("AI 电台")
-                .icon(handle.default_window_icon().cloned().unwrap())
+                .icon(icon)
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
                         if let Some(window) = tray.app_handle().get_webview_window("main") {
@@ -129,7 +145,6 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            // Log plugin in debug
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()

@@ -80,8 +80,10 @@
   }
 
   // ===== API helpers (inline to avoid module issues) =====
+  const APPBASE = (typeof window !== 'undefined' && window.__TAURI__) ? 'http://localhost:3000' : '';
+
   async function api(endpoint, opts = {}) {
-    const res = await fetch(endpoint, {
+    const res = await fetch(APPBASE + endpoint, {
       method: opts.method || 'GET',
       headers: opts.body ? { 'Content-Type': 'application/json' } : {},
       body: opts.body ? JSON.stringify(opts.body) : undefined,

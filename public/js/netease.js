@@ -1,8 +1,10 @@
 // ===== 网易云音乐前端逻辑 =====
 
 // Shared API helper (used by netease module)
+const NETBASE = (typeof window !== 'undefined' && window.__TAURI__) ? 'http://localhost:3000' : '';
+
 async function api(endpoint, opts = {}) {
-  const res = await fetch(endpoint, {
+  const res = await fetch(NETBASE + endpoint, {
     method: opts.method || 'GET',
     headers: opts.body ? { 'Content-Type': 'application/json' } : {},
     body: opts.body ? JSON.stringify(opts.body) : undefined,
