@@ -1,12 +1,16 @@
+// In Tauri production mode, frontend is served from local files,
+// so API calls need absolute URLs pointing to the Node.js sidecar.
+const API_BASE = (typeof window !== 'undefined' && window.__TAURI__) ? 'http://localhost:3000' : '';
+
 const API = {
   async get(endpoint) {
-    const res = await fetch(endpoint);
+    const res = await fetch(API_BASE + endpoint);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     return res.json();
   },
 
   async post(endpoint, data = {}) {
-    const res = await fetch(endpoint, {
+    const res = await fetch(API_BASE + endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -19,7 +23,7 @@ const API = {
   },
 
   async del(endpoint) {
-    const res = await fetch(endpoint, { method: 'DELETE' });
+    const res = await fetch(API_BASE + endpoint, { method: 'DELETE' });
     return res.json();
   },
 

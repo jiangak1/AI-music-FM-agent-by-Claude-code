@@ -5,3 +5,5 @@ Thumbs.db
 *.log
 .claude/
 server/data/
+src-tauri/target/
+src-tauri/gen/
