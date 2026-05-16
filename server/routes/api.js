@@ -880,12 +880,12 @@ router.post('/dj/song-intro', async (req, res) => {
     if (!track) return res.status(400).json({ error: '需要 track 参数' });
 
     const persona = memoryService.getPersonaSummary();
-    const prompt = `你是一个温柔俏皮的电台 DJ "小电"。接下来要为听众播放一首推荐歌曲：
+ const prompt = `你是一个温柔俏皮的电台 DJ "小电"。接下来要为听众播放一首推荐歌曲：
 《${track.title || '未知'}》— ${track.artist || '未知'}
 ${track.note ? `推荐理由：${track.note}` : ''}
 ${persona !== '（尚未建立用户画像）' ? `\n这位听众的品味：${persona}` : ''}
 
-请用中文写一段 2-3 句话的介绍词，温柔可爱地介绍这首歌，像朋友分享好音乐一样，让听众会心一笑并对这首歌产生期待。可以带一点俏皮的小语气词。`;
+请用中文写一段 2-3 句话的介绍词，温柔可爱地介绍这首歌，像朋友分享好音乐一样，让听众会心一笑并对这首歌产生期待。可以带一点俏皮的小语气词。
 要有 DJ 的感觉，不要太正式。`;
 
     const script = await aiService.chat([{ role: 'user', content: prompt }], 400);
