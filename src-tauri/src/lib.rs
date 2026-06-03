@@ -120,25 +120,29 @@ pub fn run() {
             // System tray
             let icon = app.default_window_icon().cloned().unwrap();
             let _tray = TrayIconBuilder::with_id("ai-radio-tray")
-                .tooltip("AI 电台")
+                .tooltip("AI 电台 — 正在运行")
                 .icon(icon)
                 .on_tray_icon_event(|tray, event| {
                     if let tauri::tray::TrayIconEvent::Click { button: tauri::tray::MouseButton::Left, .. } = event {
                         if let Some(window) = tray.app_handle().get_webview_window("main") {
-                            let _ = window.show();
-                            let _ = window.set_focus();
+                            if window.is_visible().unwrap_or(false) {
+                                let _ = window.set_focus();
+                            } else {
+                                let _ = window.show();
+                                let _ = window.set_focus();
+                            }
                         }
                     }
                 })
                 .menu(
                     &tauri::menu::MenuBuilder::new(app)
                         .item(
-                            &tauri::menu::MenuItemBuilder::with_id("show", "显示/隐藏")
+                            &tauri::menu::MenuItemBuilder::with_id("show", "打开界面")
                                 .build(app)?,
                         )
                         .separator()
                         .item(
-                            &tauri::menu::MenuItemBuilder::with_id("quit", "退出")
+                            &tauri::menu::MenuItemBuilder::with_id("quit", "退出电台")
                                 .build(app)?,
                         )
                         .build()?,
@@ -147,16 +151,11 @@ pub fn run() {
                     match event.id().as_ref() {
                         "show" => {
                             if let Some(window) = app.get_webview_window("main") {
-                                if window.is_visible().unwrap_or(false) {
-                                    let _ = window.hide();
-                                } else {
-                                    let _ = window.show();
-                                    let _ = window.set_focus();
-                                }
+                                let _ = window.show();
+                                let _ = window.set_focus();
                             }
                         }
                         "quit" => {
-                            // Kill sidecar before exit
                             if let Some(sidecar) = app.try_state::<SidecarProc>() {
                                 let mut guard = sidecar.0.lock().unwrap();
                                 kill_sidecar(&mut guard);
@@ -179,7 +178,7 @@ pub fn run() {
         })
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                // Hide to tray instead of closing
+                // 点击 X 关闭按钮 → 隐藏到系统托盘，后台继续运行
                 api.prevent_close();
                 let _ = window.hide();
             }
