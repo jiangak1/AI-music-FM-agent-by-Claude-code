@@ -40,24 +40,11 @@ router.get('/settings', (req, res) => {
 });
 
 // POST /api/settings
-router.post('/settings', async (req, res) => {
+router.post('/settings', (req, res) => {
   const current = config.load();
   const merged = { ...current, ...req.body };
-
-  // Quick API key validation if changed
-  if (merged.ai?.apiKey && merged.ai.apiKey !== current.ai?.apiKey) {
-    try {
-      const testResult = await aiService.testConnection(merged.ai);
-      if (!testResult.ok) {
-        return res.status(400).json({ error: testResult.error || 'API Key 验证失败' });
-      }
-    } catch (e) {
-      // Non-blocking: warn but still save
-      console.warn('API Key 验证超时，仍保存设置:', e.message);
-    }
-  }
-
   config.save(merged);
+
   const { ai } = merged;
   if (ai) {
     aiService.configure({ apiKey: ai.apiKey, apiBase: ai.apiBase, model: ai.model });

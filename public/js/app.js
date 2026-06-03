@@ -306,10 +306,11 @@
   }
 
   function getTrackUrl(track) {
-    if (track.source === 'local' || track.filePath) {
+    if (track.source === 'local' || (track.filePath && !track.url)) {
       return API.getLibraryStreamUrl(track.filePath);
     }
     if (track.url) return track.url;
+    if (track.ncmId) return API.getNeteaseStreamUrl(track.ncmId);
     return '';
   }
 
