@@ -184,8 +184,24 @@ ${tasteContext || '（暂无听众品味数据）'}
   }
 }
 
+async function testConnection(aiConfig) {
+  try {
+    const { apiKey, apiBase, model } = aiConfig;
+    const testClient = new OpenAI({
+      apiKey: apiKey || config.load().ai?.apiKey,
+      baseURL: apiBase || config.load().ai?.apiBase || 'https://api.openai.com/v1',
+      timeout: 8000,
+    });
+    const res = await testClient.models.list({ limit: 1 });
+    return { ok: !!res };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
 module.exports = {
   configure,
+  testConnection,
   generatePlaylist,
   generateDJScript,
   generateIntro,

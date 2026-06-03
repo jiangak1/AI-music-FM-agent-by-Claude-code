@@ -6,7 +6,7 @@
   "build": {
     "frontendDist": "../public",
     "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "",
+    "beforeDevCommand": "cd ../server && node index.js",
     "beforeBuildCommand": ""
   },
   "app": {
@@ -31,11 +31,7 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "../server/*.js",
-      "../server/*.json",
-      "../server/config/*",
-      "../server/routes/*",
-      "../server/services/*"
+      "../server/**/*"
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"

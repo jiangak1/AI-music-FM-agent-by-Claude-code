@@ -1,22 +1,22 @@
-/* ===== AI Radio — Deep Blue Night Theme ===== */
+/* ===== AI Radio — NetEase Cloud Style Theme ===== */
 :root {
-  --bg: #060d1a;
-  --surface: rgba(20, 35, 65, 0.25);
-  --surface2: rgba(30, 50, 90, 0.35);
-  --border: rgba(40, 60, 100, 0.15);
-  --accent: #5b8ed8;
-  --accent2: #8ab8e0;
-  --text: #f0f1f5;
-  --text2: rgba(220, 225, 240, 0.7);
-  --text3: rgba(180, 190, 210, 0.45);
-  --radius: 12px;
-  --radius-lg: 20px;
+  --bg: #0a0a0a;
+  --surface: rgba(30, 30, 30, 0.55);
+  --surface2: rgba(50, 50, 50, 0.45);
+  --border: rgba(255, 255, 255, 0.07);
+  --accent: #ec4141;
+  --accent2: #ff6b6b;
+  --text: #ffffff;
+  --text2: rgba(255, 255, 255, 0.6);
+  --text3: rgba(255, 255, 255, 0.3);
+  --radius: 10px;
+  --radius-lg: 16px;
   --radius-pill: 999px;
-  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
-  --transition: 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+  --font: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  --transition: 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
   --nav-width: 56px;
   --drawer-width: 35vw;
-  --player-max: 570px;
+  --player-max: 520px;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -111,7 +111,7 @@ body {
 
 .nav-entry.active {
   color: var(--accent);
-  background: rgba(91,142,216,0.15);
+  background: rgba(236,65,65,0.15);
 }
 
 .nav-entry.active::before {
@@ -269,20 +269,20 @@ body {
 .tag {
   font-size: 10px;
   padding: 3px 10px;
-  background: rgba(91,142,216,0.2);
+  background: rgba(236,65,65,0.2);
   color: var(--accent);
   border-radius: var(--radius-pill);
   font-weight: 500;
   letter-spacing: 0.3px;
 }
 
-/* ===== Album Art ===== */
+/* ===== Album Art — Disc Style ===== */
 .artwork-area {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 36px 16px;
+  padding: 16px 36px 20px;
   position: relative;
   z-index: 1;
 }
@@ -290,16 +290,41 @@ body {
 .artwork {
   width: 100%;
   aspect-ratio: 1;
-  max-width: 380px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #0d1525 0%, #1a2540 50%, #0d1525 100%);
+  max-width: 340px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 50%, #1a1a1a 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px var(--border);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06);
   overflow: hidden;
   position: relative;
-  transition: all var(--transition);
+  transition: box-shadow var(--transition);
+}
+
+/* Center spindle */
+.artwork::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: #1a1a1a;
+  border: 3px solid rgba(255,255,255,0.1);
+  z-index: 10;
+  pointer-events: none;
+}
+
+/* Gloss reflection */
+.artwork::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.08) 0%, transparent 60%);
+  z-index: 5;
+  pointer-events: none;
 }
 
 .artwork-img {
@@ -308,22 +333,30 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
   z-index: 1;
   transition: opacity 0.6s ease;
 }
 
+.artwork.playing .artwork-img {
+  animation: discSpin 20s linear infinite;
+}
+
+@keyframes discSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.artwork.playing .artwork-inner .artwork-icon {
+  animation: discSpin 20s linear infinite;
+}
+
 .artwork.has-cover::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.4) 100%);
-  z-index: 2;
-  pointer-events: none;
-  border-radius: var(--radius-lg);
+  /* spindle stays visible */;
 }
 
 .artwork.has-cover {
-  background: #0d1525;
+  background: #1a1a1a;
 }
 
 .artwork-inner {
@@ -333,13 +366,14 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   padding: 24px;
   text-align: center;
-  background: linear-gradient(180deg, rgba(180, 185, 195, 0.12) 0%, rgba(140, 155, 175, 0.06) 100%);
+  background: radial-gradient(circle, rgba(40,40,40,0.3) 0%, rgba(20,20,20,0.6) 100%);
   position: relative;
   z-index: 2;
   transition: opacity var(--transition);
+  border-radius: 50%;
 }
 
 .artwork.has-cover .artwork-inner {
@@ -347,31 +381,26 @@ body {
 }
 
 .artwork-icon {
-  font-size: 48px;
-  opacity: 0.8;
+  font-size: 44px;
+  opacity: 0.7;
   filter: grayscale(0.3);
 }
 
 .artwork-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 500;
   letter-spacing: -0.3px;
   color: var(--text);
 }
 
 .artwork-subtitle {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text2);
   font-weight: 400;
 }
 
-.artwork.playing .artwork-inner {
-  animation: artworkPulse 3s ease-in-out infinite;
-}
-
-@keyframes artworkPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
+.artwork.playing {
+  box-shadow: 0 24px 70px rgba(236,65,65,0.08), 0 0 0 1px rgba(255,255,255,0.08);
 }
 
 /* ===== Track Info ===== */
@@ -395,7 +424,7 @@ body {
 
 .track-artist {
   font-size: 15px;
-  color: var(--accent);
+  color: var(--text2);
   font-weight: 400;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -478,7 +507,7 @@ body {
   background: var(--accent);
   cursor: pointer;
   margin-top: -4px;
-  box-shadow: 0 0 8px rgba(91,142,216,0.5);
+  box-shadow: 0 0 8px rgba(236,65,65,0.5);
   opacity: 0.6;
   transition: opacity 0.2s, transform 0.15s;
 }
@@ -620,7 +649,7 @@ body {
 .track-item:hover { background: var(--surface2); }
 
 .track-item.playing {
-  background: rgba(91,142,216,0.15);
+  background: rgba(236,65,65,0.15);
 }
 
 .track-item .track-num {
@@ -772,7 +801,7 @@ body {
   transition: all 0.2s;
 }
 
-.btn-primary:hover { background: #4a7ac0; transform: translateY(-1px); }
+.btn-primary:hover { background: #d63a3a; transform: translateY(-1px); }
 .btn-primary:active { transform: scale(0.98); }
 .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
@@ -958,7 +987,7 @@ body {
   width: var(--chat-drawer-width);
   max-width: 420px;
   height: 100%;
-  background: rgba(8, 15, 28, 0.97);
+  background: rgba(12, 12, 12, 0.97);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   border-left: 1px solid var(--border);

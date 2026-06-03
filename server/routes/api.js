@@ -40,13 +40,28 @@ router.get('/settings', (req, res) => {
 });
 
 // POST /api/settings
-router.post('/settings', (req, res) => {
+router.post('/settings', async (req, res) => {
   const current = config.load();
   const merged = { ...current, ...req.body };
-  config.save(merged);
 
-  const { ai, dj, musicDir } = merged;
-  aiService.configure({ apiKey: ai.apiKey, apiBase: ai.apiBase, model: ai.model });
+  // Quick API key validation if changed
+  if (merged.ai?.apiKey && merged.ai.apiKey !== current.ai?.apiKey) {
+    try {
+      const testResult = await aiService.testConnection(merged.ai);
+      if (!testResult.ok) {
+        return res.status(400).json({ error: testResult.error || 'API Key 验证失败' });
+      }
+    } catch (e) {
+      // Non-blocking: warn but still save
+      console.warn('API Key 验证超时，仍保存设置:', e.message);
+    }
+  }
+
+  config.save(merged);
+  const { ai } = merged;
+  if (ai) {
+    aiService.configure({ apiKey: ai.apiKey, apiBase: ai.apiBase, model: ai.model });
+  }
   res.json({ success: true });
 });
 
@@ -885,8 +900,7 @@ router.post('/dj/song-intro', async (req, res) => {
 ${track.note ? `推荐理由：${track.note}` : ''}
 ${persona !== '（尚未建立用户画像）' ? `\n这位听众的品味：${persona}` : ''}
 
-请用中文写一段 2-3 句话的介绍词，温柔可爱地介绍这首歌，像朋友分享好音乐一样，让听众会心一笑并对这首歌产生期待。可以带一点俏皮的小语气词。`;
-要有 DJ 的感觉，不要太正式。`;
+请用中文写一段 2-3 句话的介绍词，温柔可爱地介绍这首歌，像朋友分享好音乐一样，让听众会心一笑并对这首歌产生期待。可以带一点俏皮的小语气词。要有 DJ 的感觉，不要太正式。`;
 
     const script = await aiService.chat([{ role: 'user', content: prompt }], 400);
     const audioUrl = await ttsService.synthesize(script);

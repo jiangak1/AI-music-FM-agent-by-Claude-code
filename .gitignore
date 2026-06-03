@@ -7,3 +7,4 @@ Thumbs.db
 server/data/
 src-tauri/target/
 src-tauri/gen/
+rustup-init.exe

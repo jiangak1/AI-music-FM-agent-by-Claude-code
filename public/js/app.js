@@ -8,50 +8,112 @@
   let recommendedTracks = [];
   let library = [];
 
-  // Ambient background (procedural animation, no Web Audio API)
-  let _pulseAnimId = null;
-  let _pulsePhase = 0;
+  // ===== Audio Visualizer (Web Audio API) =====
+  let _audioCtx = null;
+  let _analyser = null;
+  let _source = null;
+  let _vizAnimId = null;
 
-  function startAmbientPulse() {
-    stopAmbientPulse();
-    const bg = $('#ambientBg');
-    if (!bg) return;
-    bg.classList.add('active');
-
-    function pulse(ts) {
-      const bgEl = $('#ambientBg');
-      if (!bgEl) { _pulseAnimId = null; return; }
-      const audio = window._audio;
-      const playing = audio && !audio.paused && !audio.ended;
-      if (playing) {
-        _pulsePhase += 0.016; // ~60fps increment
-        const t = _pulsePhase;
-        const scale = 1 + Math.sin(t * 0.6) * 0.03 + Math.sin(t * 1.3) * 0.02;
-        const bright = 0.05 + Math.sin(t * 0.45) * 0.05 + Math.sin(t * 0.9) * 0.03;
-        const hueShift = Math.sin(t * 0.35) * 25;
-        bgEl.style.transform = `scale(${scale})`;
-        bgEl.style.filter = `brightness(${bright})`;
-        bgEl.style.background = `
-          radial-gradient(ellipse at ${50 + Math.sin(t * 0.5) * 8}% ${40 + Math.cos(t * 0.4) * 8}%, hsla(${260 + hueShift},60%,35%,0.22) 0%, transparent 50%),
-          radial-gradient(ellipse at ${70 + Math.cos(t * 0.55) * 8}% ${60 + Math.sin(t * 0.45) * 8}%, hsla(${320 + hueShift},50%,25%,0.16) 0%, transparent 50%)
-        `;
-      }
-      _pulseAnimId = requestAnimationFrame(pulse);
+  function initAudioContext() {
+    if (_audioCtx) return;
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      _analyser = _audioCtx.createAnalyser();
+      _analyser.fftSize = 256;
+      _analyser.smoothingTimeConstant = 0.85;
+    } catch (e) {
+      console.warn('Web Audio API 不可用:', e.message);
     }
-    _pulseAnimId = requestAnimationFrame(pulse);
   }
 
-  function stopAmbientPulse() {
-    if (_pulseAnimId) {
-      cancelAnimationFrame(_pulseAnimId);
-      _pulseAnimId = null;
+  function connectAudioSource(audioEl) {
+    if (!_analyser || !audioEl) return;
+    try {
+      if (_source) {
+        _source.disconnect();
+        _source = null;
+      }
+      _source = _audioCtx.createMediaElementSource(audioEl);
+      _source.connect(_analyser);
+      _analyser.connect(_audioCtx.destination);
+    } catch (e) {
+      // May fail if already connected from a previous play
     }
-    const bg = $('#ambientBg');
-    if (bg) {
-      bg.classList.remove('active');
-      bg.style.transform = 'scale(1)';
-      bg.style.filter = 'brightness(0.08)';
-      bg.style.background = '';
+  }
+
+  function avgRange(arr, start, end) {
+    let sum = 0;
+    for (let i = start; i < end; i++) sum += arr[i];
+    return sum / (end - start);
+  }
+
+  function startAudioVisualizer(audioEl) {
+    stopAudioVisualizer();
+    initAudioContext();
+    connectAudioSource(audioEl);
+
+    const bgEl = $('#ambientBg');
+    if (!bgEl) return;
+    bgEl.classList.add('active');
+
+    const freqData = new Uint8Array(_analyser ? _analyser.frequencyBinCount : 128);
+    const bgImage = $('#bgImage');
+
+    function visualize() {
+      if (!bgEl) { _vizAnimId = null; return; }
+      const audio = window._audio;
+      const playing = audio && !audio.paused && !audio.ended;
+      if (!playing) {
+        _vizAnimId = requestAnimationFrame(visualize);
+        return;
+      }
+
+      if (_analyser) {
+        _analyser.getByteFrequencyData(freqData);
+      }
+
+      const bass = _analyser ? avgRange(freqData, 0, 8) : 0;
+      const mid  = _analyser ? avgRange(freqData, 8, 40) : 0;
+      const high = _analyser ? avgRange(freqData, 40, 128) : 0;
+      const totalEnergy = (bass * 0.5 + mid * 0.3 + high * 0.2) / 255;
+
+      const scale = 1 + totalEnergy * 0.08;
+      const bright = 0.08 + totalEnergy * 0.18;
+      const saturation = 0.3 + totalEnergy * 0.7;
+      const hueBase = 0;
+      const hueShift = (bass / 255) * 25 - 10;
+
+      bgEl.style.transform = `scale(${scale})`;
+      bgEl.style.opacity = Math.min(1, 0.25 + totalEnergy * 1.5);
+      bgEl.style.background = `
+        radial-gradient(ellipse at 50% 40%, hsla(${hueBase + hueShift}, 80%, ${40 + mid / 255 * 20}%, ${0.08 + totalEnergy * 0.15}) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, hsla(${(hueBase + 30 + hueShift) % 360}, 60%, ${35 + high / 255 * 15}%, ${0.04 + totalEnergy * 0.1}) 0%, transparent 50%)
+      `;
+
+      if (bgImage) {
+        bgImage.style.filter = `saturate(${saturation}) brightness(${0.8 + totalEnergy * 0.4})`;
+      }
+
+      _vizAnimId = requestAnimationFrame(visualize);
+    }
+    _vizAnimId = requestAnimationFrame(visualize);
+  }
+
+  function stopAudioVisualizer() {
+    if (_vizAnimId) {
+      cancelAnimationFrame(_vizAnimId);
+      _vizAnimId = null;
+    }
+    const bgEl = $('#ambientBg');
+    if (bgEl) {
+      bgEl.classList.remove('active');
+      bgEl.style.transform = 'scale(1)';
+      bgEl.style.opacity = '';
+      bgEl.style.background = '';
+    }
+    const bgImage = $('#bgImage');
+    if (bgImage) {
+      bgImage.style.filter = '';
     }
   }
 
@@ -79,26 +141,10 @@
     loadWeather();
   }
 
-  // ===== API helpers (inline to avoid module issues) =====
-  const APPBASE = (typeof window !== 'undefined' && window.__TAURI__) ? 'http://localhost:3000' : '';
-
-  async function api(endpoint, opts = {}) {
-    const res = await fetch(APPBASE + endpoint, {
-      method: opts.method || 'GET',
-      headers: opts.body ? { 'Content-Type': 'application/json' } : {},
-      body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${res.status}`);
-    }
-    return res.json();
-  }
-
   // ===== Data loading =====
   async function loadStatus() {
     try {
-      const s = await api('/api/status');
+      const s = await API.getStatus();
       queue = s.queue || [];
       currentIndex = s.current ? queue.findIndex(t => t.id === s.current.id) : -1;
       UI.setQueueCount(queue.length);
@@ -110,7 +156,7 @@
 
   async function loadWeather() {
     try {
-      const w = await api('/api/weather');
+      const w = await API.getWeather();
       UI.setWeatherMini(w);
     } catch (e) {
       console.warn('天气加载失败:', e.message);
@@ -121,7 +167,7 @@
     if (track.cover) return;
     try {
       const kw = `${track.title} ${track.artist}`;
-      const result = await api(`/api/netease/search?keyword=${encodeURIComponent(kw)}&limit=1`);
+      const result = await API.searchNetease(kw, 1);
       const songs = result?.songs;
       if (songs && songs.length > 0 && songs[0].al?.picUrl) {
         track.cover = songs[0].al.picUrl;
@@ -140,7 +186,7 @@
       if (track.filePath) params.push(`filePath=${encodeURIComponent(track.filePath)}`);
       if (params.length === 0) return;
 
-      const data = await api(`/api/lyrics?${params.join('&')}`);
+      const data = await API.getLyrics(track);
       if (data.parsed && data.parsed.length > 0) {
         UI.setLyrics(data.parsed);
       }
@@ -151,7 +197,7 @@
 
   async function updateLikeButton(track) {
     try {
-      const data = await api('/api/memory/liked');
+      const data = await API.getLiked();
       const liked = data.liked || [];
       const key = track.ncmId || track.id || `${track.title}-${track.artist}`;
       const isLiked = liked.some((t) => (t.ncmId || t.id) === key);
@@ -165,7 +211,7 @@
 
   async function recordPlayHistory(track) {
     try {
-      await api('/api/memory/history', { method: 'POST', body: { track } });
+      await API.recordPlay(track);
     } catch (e) {
       // silent
     }
@@ -174,7 +220,7 @@
   async function toggleLikeCurrent() {
     if (currentIndex < 0 || currentIndex >= queue.length) return;
     try {
-      const result = await api('/api/memory/like', { method: 'POST', body: { track: queue[currentIndex] } });
+      const result = await API.toggleLike(queue[currentIndex]);
       $('#btnLike').textContent = result.isLiked ? '♥' : '♡';
     } catch (e) {
       console.warn('喜欢操作失败:', e.message);
@@ -183,7 +229,7 @@
 
   async function loadSettings() {
     try {
-      const s = await api('/api/settings');
+      const s = await API.getSettings();
       UI.fillSettings(s);
     } catch (e) {
       console.warn('加载设置失败:', e.message);
@@ -192,7 +238,7 @@
 
   async function loadLibrary() {
     try {
-      const data = await api('/api/library');
+      const data = await API.getLibrary();
       library = data.tracks || [];
       UI.renderList('#libraryEl', library, -1, false);
     } catch (e) {
@@ -252,7 +298,7 @@
     audio.src = url;
     audio.play().catch(e => console.warn('播放失败:', e));
 
-    startAmbientPulse();
+    startAudioVisualizer(audio);
 
     // Fetch cover & lyrics
     fetchCoverForTrack(track);
@@ -261,7 +307,7 @@
 
   function getTrackUrl(track) {
     if (track.source === 'local' || track.filePath) {
-      return `/api/library/stream?path=${encodeURIComponent(track.filePath)}`;
+      return API.getLibraryStreamUrl(track.filePath);
     }
     if (track.url) return track.url;
     return '';
@@ -271,7 +317,7 @@
     if (window._audio) {
       window._audio.play().catch(() => {});
       UI.setPlaying(true);
-      startAmbientPulse();
+      startAudioVisualizer(window._audio);
     }
   }
 
@@ -283,7 +329,7 @@
   }
 
   function stopAudio() {
-    stopAmbientPulse();
+    stopAudioVisualizer();
     UI.clearLyrics();
     stopIntroAudio();
     hideIntroBubble();
@@ -312,17 +358,14 @@
 
     // Check for DJ segue
     try {
-      const s = await api('/api/settings');
+      const s = await API.getSettings();
       const djEnabled = s.dj?.enabled !== false;
       const freq = s.dj?.frequency || 'every_track';
 
       if (djEnabled && shouldPlayDJ(currentIndex, queue.length, freq)) {
         const nextTrack = currentIndex + 1 < queue.length ? queue[currentIndex + 1] : null;
         if (nextTrack) {
-          const dj = await api('/api/dj/segue', {
-            method: 'POST',
-            body: { currentTrack: queue[currentIndex], nextTrack },
-          });
+          const dj = await API.getDJSegue(queue[currentIndex], nextTrack);
           if (dj.script) {
             UI.showDJMessage(dj.script);
           }
@@ -459,7 +502,7 @@
 
     // Add all AI to queue
     $('#btnAddAllAI').addEventListener('click', () => {
-      api('/api/queue/add', { method: 'POST', body: { track: aiPlaylist } })
+      API.addToQueue(aiPlaylist)
         .then(() => { loadStatus(); showToast(`已加入 ${aiPlaylist.length} 首`); });
     });
 
@@ -468,7 +511,7 @@
       const idx = parseInt(e.target.closest('.track-item')?.dataset.index, 10);
       if (isNaN(idx)) return;
       const track = aiPlaylist[idx];
-      api('/api/queue/add', { method: 'POST', body: { track } })
+      API.addToQueue(track)
         .then(() => { loadStatus(); showToast('已加入队列'); });
     });
 
@@ -481,7 +524,7 @@
       }
       UI.setScanStatus('扫描中...');
       try {
-        const data = await api('/api/library/scan', { method: 'POST', body: { dir } });
+        const data = await API.scanLibrary(dir);
         library = data.tracks || [];
         UI.renderList('#libraryEl', library, -1, false);
         UI.setScanStatus(`扫描完成，找到 ${library.length} 首曲目`);
@@ -494,7 +537,7 @@
     $('#libraryEl').addEventListener('click', (e) => {
       const idx = parseInt(e.target.closest('.track-item')?.dataset.index, 10);
       if (isNaN(idx)) return;
-      api('/api/queue/add', { method: 'POST', body: { track: library[idx] } })
+      API.addToQueue(library[idx])
         .then(() => { loadStatus(); showToast('已加入队列'); });
     });
 
@@ -502,7 +545,7 @@
     $('#btnClearQueue').addEventListener('click', async () => {
       stopAudio();
       currentIndex = -1;
-      await api('/api/queue/clear', { method: 'POST' });
+      await API.clearQueue();
       UI.renderList('#playlistEl', [], -1);
       UI.setQueueCount(0);
       UI.setTrack('准备开始', 'AI 电台');
@@ -516,7 +559,7 @@
     $('#btnWeather').addEventListener('click', async () => {
       UI.setGenerating(true);
       try {
-        const data = await api('/api/playlist/weather', { method: 'POST', body: {} });
+        const data = await API.generateWeatherPlaylist();
         if (data.weather) {
           UI.setMood(`${data.weather.description} ${data.weather.temperature}°`);
           UI.setWeatherMini(data.weather);
@@ -554,10 +597,7 @@
       try {
         // Use real AI analysis on generated playlist to build persona
         const tracks = aiPlaylist.map((t) => ({ name: t.title, artist: t.artist }));
-        const data = await api('/api/memory/update-persona', {
-          method: 'POST',
-          body: { tracks, source: 'ai-generate' },
-        });
+        const data = await API.updatePersona(tracks, 'ai-generate');
         alert('品味画像已保存到本地记忆');
       } catch (e) {
         alert('保存失败: ' + e.message);
@@ -568,7 +608,7 @@
     $('#btnSaveSettings').addEventListener('click', async () => {
       UI.setSaving(true);
       try {
-        await api('/api/settings', { method: 'POST', body: UI.readSettings() });
+        await API.saveSettings(UI.readSettings());
         alert('设置已保存');
       } catch (e) {
         alert('保存失败: ' + e.message);
@@ -582,7 +622,7 @@
     UI.showAIResult(false);
     try {
       const form = UI.readAIForm();
-      const data = await api('/api/playlist/generate', { method: 'POST', body: form });
+      const data = await API.generatePlaylist(form);
       aiPlaylist = data.playlist || [];
       UI.renderList('#aiPlaylistEl', aiPlaylist, -1, false);
       UI.showAIResult(true);
@@ -597,7 +637,7 @@
 
   async function removeFromQueue(index) {
     try {
-      await api(`/api/queue/${index}`, { method: 'DELETE' });
+      await API.removeFromQueue(index);
       await loadStatus();
     } catch (e) {
       console.warn('移除失败:', e.message);
@@ -620,7 +660,7 @@
       const key = _cacheKey(track);
       if (_introCache.has(key)) continue;
       try {
-        const data = await api('/api/dj/song-intro', { method: 'POST', body: { track } });
+        const data = await API.getSongIntro(track);
         if (data.script || data.audioUrl) {
           _introCache.set(key, data);
         }
@@ -632,7 +672,7 @@
 
   async function loadRecommended() {
     try {
-      const data = await api('/api/recommended');
+      const data = await API.getRecommended();
       recommendedTracks = data.tracks || [];
       renderRecommended();
       // Pre-fetch intro for first track in background
@@ -646,7 +686,7 @@
 
   async function setRecommended(tracks) {
     recommendedTracks = tracks;
-    await api('/api/recommended/set', { method: 'POST', body: { tracks } });
+    await API.setRecommended(tracks);
     renderRecommended();
     // Pre-fetch intro for first track
     if (recommendedTracks.length > 0) {
@@ -696,7 +736,7 @@
         }
       } else {
         // Fetch on-demand (slower path)
-        introData = await api('/api/dj/song-intro', { method: 'POST', body: { track } });
+        introData = await API.getSongIntro(track);
         if (introData.script) {
           showIntroBubble(introData.script);
         }
@@ -716,13 +756,13 @@
       _skipNextSegue = true;
 
       // Add to front of queue and play
-      await api('/api/queue/add', { method: 'POST', body: { track, toFront: true } });
+      await API.addToQueue(track, true);
       await loadStatus();
       playTrack(0);
 
       // Remove from recommended
       recommendedTracks.splice(index, 1);
-      await api('/api/recommended/set', { method: 'POST', body: { tracks: recommendedTracks } });
+      await API.setRecommended(recommendedTracks);
       renderRecommended();
 
       // Pre-fetch next track's intro
@@ -732,7 +772,7 @@
     } catch (e) {
       hideIntroBubble();
       console.warn('推荐播放失败:', e.message);
-      await api('/api/queue/add', { method: 'POST', body: { track } });
+      await API.addToQueue(track);
       loadStatus();
       showToast('已加入队列');
     } finally {
@@ -743,14 +783,14 @@
   async function addRecommendedToQueue(index) {
     const track = recommendedTracks[index];
     if (!track) return;
-    await api('/api/queue/add', { method: 'POST', body: { track } });
+    await API.addToQueue(track);
     loadStatus();
     showToast('已加入队列');
   }
 
   async function addAllRecommendedToQueue() {
     if (recommendedTracks.length === 0) return;
-    await api('/api/queue/add', { method: 'POST', body: { track: recommendedTracks } });
+    await API.addToQueue(recommendedTracks);
     loadStatus();
     showToast(`已加入 ${recommendedTracks.length} 首`);
   }
@@ -758,7 +798,7 @@
   async function removeRecommendedTrack(index) {
     const track = recommendedTracks[index];
     recommendedTracks.splice(index, 1);
-    await api('/api/recommended/set', { method: 'POST', body: { tracks: recommendedTracks } });
+    await API.setRecommended(recommendedTracks);
     renderRecommended();
     // Clear cached intro for removed track
     const key = _cacheKey(track);
@@ -767,7 +807,7 @@
 
   async function clearRecommended() {
     recommendedTracks = [];
-    await api('/api/recommended/clear', { method: 'POST' });
+    await API.clearRecommended();
     renderRecommended();
   }
 

@@ -37,7 +37,6 @@ async function synthesize(text, voice = null) {
       model: model,
       messages: [
         { role: 'user', content: text },
-        { role: 'assistant', content: text },
       ],
       audio: {
         format: 'wav',

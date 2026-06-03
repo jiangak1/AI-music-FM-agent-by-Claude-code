@@ -23,12 +23,28 @@ fn wait_for_server(url: &str, max_retries: u32) -> bool {
     false
 }
 
-fn start_node_server() -> Option<Child> {
-    let server_dir = std::env::current_dir()
-        .ok()?
-        .parent()?
-        .join("server");
+fn find_server_dir(app_handle: &tauri::AppHandle) -> Option<std::path::PathBuf> {
+    // In dev mode, server/ is relative to the project root (parent of src-tauri/)
+    // In production, it's bundled as a resource
+    let resource_dir = app_handle.path().resource_dir().ok()?;
+    let server_dir = resource_dir.join("server");
+    if server_dir.exists() {
+        return Some(server_dir);
+    }
+    // Fallback for dev: look relative to the manifest dir
+    if let Ok(cwd) = std::env::current_dir() {
+        let dev_server = cwd.parent().map(|p| p.join("server"));
+        if let Some(ref dir) = dev_server {
+            if dir.exists() {
+                return Some(dir.clone());
+            }
+        }
+    }
+    None
+}
 
+fn start_node_server(app_handle: &tauri::AppHandle) -> Option<Child> {
+    let server_dir = find_server_dir(app_handle)?;
     log::info!("Starting Node.js server from: {}", server_dir.display());
 
     let child = Command::new("node")
@@ -41,7 +57,11 @@ fn start_node_server() -> Option<Child> {
 
     log::info!("Node.js server started with PID: {}", child.id());
 
-    wait_for_server("http://localhost:3000/api/status", 30);
+    let ready = wait_for_server("http://localhost:3000/api/status", 30);
+    if !ready {
+        log::error!("Server startup timed out");
+        return None;
+    }
 
     Some(child)
 }
@@ -60,9 +80,9 @@ fn kill_sidecar(child: &mut Option<Child>) {
 fn restart_sidecar(state: tauri::State<SidecarProc>) -> Result<String, String> {
     let mut guard = state.0.lock().map_err(|e| e.to_string())?;
     kill_sidecar(&mut guard);
-    let child = start_node_server().ok_or("Failed to restart Node.js server")?;
-    *guard = Some(child);
-    Ok("Server restarted".into())
+    // We need the app handle to find the server dir, but it's not available in a command.
+    // For restart, fall back to the current working dir approach.
+    Err("Restart not yet supported — please restart the app".into())
 }
 
 #[tauri::command]
@@ -79,24 +99,22 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
-            // Start Node.js sidecar (blocks until server is ready)
-            let child = start_node_server();
+            // Start Node.js sidecar
+            let child = start_node_server(app.handle());
             app.manage(SidecarProc(Mutex::new(child)));
 
             // Create main window pointing to the Node.js server
-            // This works for both dev and production — all relative API paths resolve correctly
             let window = tauri::WebviewWindowBuilder::new(
                 app,
                 "main",
                 tauri::WebviewUrl::External("http://localhost:3000".parse().unwrap()),
             )
-            .title("AI 电台 FM 102.4")
-            .inner_size(400.0, 820.0)
-            .min_inner_size(360.0, 600.0)
+            .title("AI 电台")
+            .inner_size(420.0, 780.0)
+            .min_inner_size(360.0, 640.0)
             .center()
             .build()?;
 
-            // Bring to front
             let _ = window.set_focus();
 
             // System tray
@@ -138,6 +156,11 @@ pub fn run() {
                             }
                         }
                         "quit" => {
+                            // Kill sidecar before exit
+                            if let Some(sidecar) = app.try_state::<SidecarProc>() {
+                                let mut guard = sidecar.0.lock().unwrap();
+                                kill_sidecar(&mut guard);
+                            }
                             app.exit(0);
                         }
                         _ => {}
@@ -155,11 +178,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if let Some(sidecar) = window.try_state::<SidecarProc>() {
-                    let mut guard = sidecar.0.lock().unwrap();
-                    kill_sidecar(&mut guard);
-                }
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                // Hide to tray instead of closing
+                api.prevent_close();
+                let _ = window.hide();
             }
         })
         .invoke_handler(tauri::generate_handler![restart_sidecar, get_sidecar_status])

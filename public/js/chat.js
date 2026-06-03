@@ -55,7 +55,7 @@ const Chat = {
           note: btn.dataset.note || '',
           source: 'ai-chat',
         };
-        api('/api/recommended/add', { method: 'POST', body: { track } })
+        API.addToRecommended(track)
           .then(() => {
             if (typeof window.refreshRecommended === 'function') window.refreshRecommended();
             if (typeof showToast === 'function') showToast('已加入推荐列表');
@@ -99,10 +99,7 @@ const Chat = {
     this.showTyping();
 
     try {
-      const data = await api('/api/chat/send', {
-        method: 'POST',
-        body: { message: text },
-      });
+      const data = await API.sendChat(text);
       this.hideTyping();
       this.addMessage('ai', data.reply, data.songs || []);
     } catch (e) {
@@ -113,7 +110,7 @@ const Chat = {
 
   async fetchGreeting() {
     try {
-      const data = await api('/api/chat/greeting');
+      const data = await API.getGreeting();
       if (data.message) {
         this.addMessage('ai', data.message);
         this.open();
@@ -126,7 +123,7 @@ const Chat = {
 
   async loadHistory() {
     try {
-      const data = await api('/api/chat/history');
+      const data = await API.getChatHistory();
       const history = data.messages || [];
       if (history.length > 0) {
         this.state.messages = history;
@@ -138,7 +135,6 @@ const Chat = {
   },
 
   addMessage(role, content, songs) {
-    this.state.messages.push({ role, content, songs: songs || [], timestamp: Date.now() });
     this.renderMessages();
   },
 

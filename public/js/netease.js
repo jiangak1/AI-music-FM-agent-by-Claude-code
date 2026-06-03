@@ -1,21 +1,6 @@
 // ===== 网易云音乐前端逻辑 =====
 
 // Shared API helper (used by netease module)
-const NETBASE = (typeof window !== 'undefined' && window.__TAURI__) ? 'http://localhost:3000' : '';
-
-async function api(endpoint, opts = {}) {
-  const res = await fetch(NETBASE + endpoint, {
-    method: opts.method || 'GET',
-    headers: opts.body ? { 'Content-Type': 'application/json' } : {},
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.error || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
-
 const NeteaseUI = {
   state: {
     loggedIn: false,
@@ -33,7 +18,7 @@ const NeteaseUI = {
 
   async checkLoginStatus() {
     try {
-      const data = await api('/api/netease/status');
+      const data = await API.getNeteaseStatus();
       if (data.loggedIn) {
         this.state.loggedIn = true;
         this.state.profile = data.profile;
@@ -55,11 +40,11 @@ const NeteaseUI = {
   async startQRLogin() {
     try {
       // Get QR key
-      const keyData = await api('/api/netease/qr/key');
+      const keyData = await API.getNeteaseQRKey();
       this.state.qrKey = keyData.key;
 
       // Create QR code
-      const qrData = await api(`/api/netease/qr/create?key=${this.state.qrKey}`);
+      const qrData = await API.getNeteaseQRCode(this.state.qrKey);
       document.getElementById('neteaseQRImg').src = qrData.qrimg;
       document.getElementById('neteaseQRArea').style.display = 'block';
 
@@ -75,7 +60,7 @@ const NeteaseUI = {
 
     this.state.qrTimer = setInterval(async () => {
       try {
-        const result = await api(`/api/netease/qr/check?key=${this.state.qrKey}`);
+        const result = await API.checkNeteaseQR(this.state.qrKey);
         if (result.code === 800) {
           // Expired
           clearInterval(this.state.qrTimer);
@@ -98,7 +83,7 @@ const NeteaseUI = {
       const uid = this.state.profile?.userId;
       if (!uid) return;
 
-      const data = await api(`/api/netease/playlists?uid=${uid}`);
+      const data = await API.getNeteasePlaylists(uid);
       this.state.myPlaylists = data.playlists || [];
       this.renderPlaylists();
       this.updateTasteSelect();
@@ -131,7 +116,7 @@ const NeteaseUI = {
 
   async openPlaylist(id) {
     try {
-      const data = await api(`/api/netease/playlist/${id}/tracks`);
+      const data = await API.getNeteasePlaylistTracks(id);
       this.state.currentPlaylist = { id, name: '' };
       this.state.currentTracks = data.tracks || [];
 
@@ -183,6 +168,7 @@ const NeteaseUI = {
     document.querySelectorAll('.netease-subtab').forEach((t) => {
       t.classList.toggle('active', t.dataset.ntab === name);
     });
+
   },
 
   async playNeteaseTrack(index) {
@@ -191,7 +177,7 @@ const NeteaseUI = {
 
     try {
       // Get streaming URL
-      const urlData = await api(`/api/netease/song/url/${track.ncmId}`);
+      const urlData = await API.getNeteaseSongUrl(track.ncmId);
       if (urlData.url) {
         track.url = urlData.url;
       }
@@ -200,9 +186,9 @@ const NeteaseUI = {
     }
 
     // Add to queue and play
-    await api('/api/queue/add', { method: 'POST', body: { track } });
+    await API.addToQueue(track);
     // Play the last item in queue
-    const qData = await api('/api/queue');
+    const qData = await API.getQueue();
     const lastIdx = qData.queue.length - 1;
     if (typeof playTrack === 'function') {
       playTrack(lastIdx);
@@ -212,21 +198,21 @@ const NeteaseUI = {
   async addNeteaseToQueue(index) {
     const track = this.state.currentTracks[index];
     if (!track) return;
-    await api('/api/queue/add', { method: 'POST', body: { track } });
+    await API.addToQueue(track);
     if (typeof loadStatus === 'function') loadStatus();
     if (typeof showToast === 'function') showToast('已加入队列');
   },
 
   async addAllNeteaseToQueue() {
     if (this.state.currentTracks.length === 0) return;
-    await api('/api/queue/add', { method: 'POST', body: { track: this.state.currentTracks } });
+    await API.addToQueue(this.state.currentTracks);
     if (typeof loadStatus === 'function') loadStatus();
     if (typeof showToast === 'function') showToast(`已加入 ${this.state.currentTracks.length} 首`);
   },
 
   async search(keyword) {
     try {
-      const result = await api(`/api/netease/search?keyword=${encodeURIComponent(keyword)}&limit=30`);
+      const result = await API.searchNetease(keyword, 30);
       const songs = result?.songs || [];
       const tracks = songs.map((s) => ({
         id: `ncm_${s.id}`,
@@ -267,10 +253,7 @@ const NeteaseUI = {
     resultEl.innerHTML = '<p style="color:var(--text2);">正在分析品味并生成推荐...</p>';
 
     try {
-      const data = await api('/api/netease/playlist/generate', {
-        method: 'POST',
-        body: { playlistId, count: 20 },
-      });
+      const data = await API.generateNeteaseTaste(playlistId, 20);
 
       const taste = data.taste;
       const recommendations = data.recommendations || [];
@@ -391,7 +374,7 @@ function initNeteaseEvents() {
     const idx = parseInt(btn.dataset.index, 10);
     const track = NeteaseUI._searchResults?.[idx];
     if (track) {
-      api('/api/queue/add', { method: 'POST', body: { track } })
+      API.addToQueue(track)
         .then(() => {
           if (typeof loadStatus === 'function') loadStatus();
           if (typeof showToast === 'function') showToast('已加入队列');
@@ -416,7 +399,7 @@ function initNeteaseEvents() {
     const idx = parseInt(btn.dataset.index, 10);
     const track = NeteaseUI._recommendations?.[idx];
     if (track) {
-      api('/api/queue/add', { method: 'POST', body: { track } })
+      API.addToQueue(track)
         .then(() => {
           if (typeof loadStatus === 'function') loadStatus();
           if (typeof showToast === 'function') showToast('已加入队列');
@@ -427,7 +410,7 @@ function initNeteaseEvents() {
   document.getElementById('tasteAnalysisResult').addEventListener('click', (e) => {
     const btn = e.target.closest('#btnAddTasteRecs');
     if (btn && NeteaseUI._recommendations?.length) {
-      api('/api/queue/add', { method: 'POST', body: { track: NeteaseUI._recommendations } })
+      API.addToQueue(NeteaseUI._recommendations)
         .then(() => {
           if (typeof loadStatus === 'function') loadStatus();
           if (typeof showToast === 'function') showToast(`已加入 ${NeteaseUI._recommendations.length} 首`);
